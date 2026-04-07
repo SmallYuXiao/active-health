@@ -73,3 +73,10 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Development artifacts
+build.log
+task.md
+walkthrough.md
+implementation_plan.md
+iconOriginal.png

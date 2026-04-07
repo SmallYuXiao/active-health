@@ -260,7 +260,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J6PH9SW96A;
 				ENABLE_BITCODE = NO;
+				HERMES_CLI_PATH = "$(SRCROOT)/../node_modules/hermes-compiler/hermesc/osx-bin/hermesc";
 				INFOPLIST_FILE = ActiveHealth/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -290,6 +292,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J6PH9SW96A;
+				HERMES_CLI_PATH = "$(SRCROOT)/../node_modules/hermes-compiler/hermesc/osx-bin/hermesc";
 				INFOPLIST_FILE = ActiveHealth/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
