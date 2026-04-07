@@ -6,6 +6,32 @@ export type ProgramId =
   | 'ckd'
   | 'weight';
 
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
+
+export interface UserProfile {
+  id: string;
+  name?: string;
+  gender: Gender;
+  age?: number;
+  conditions: ProgramId[];
+  createdAt: string;
+}
+
+export interface HealthBaseline {
+  bloodPressureSys?: number;
+  bloodPressureDia?: number;
+  painLevel?: number; // 0-10
+  bmi?: number;
+  lastUpdatedAt: string;
+}
+
+export interface Prescription {
+  nutrition?: string[];
+  movement?: string[];
+  behavioral?: string[];
+  medications?: string[];
+}
+
 export type TaskCategory =
   | 'measurement'
   | 'medication'

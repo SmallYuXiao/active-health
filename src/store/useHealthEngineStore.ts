@@ -6,10 +6,12 @@ import { submitQueueJob } from '../services/mockSyncApi';
 import type {
   AssessmentAnswerMap,
   AssessmentSubmissionRecord,
+  HealthBaseline,
   NetworkQuality,
   ProgramId,
   QueueJob,
   TaskCompletionRecord,
+  UserProfile,
 } from '../types/health';
 import {
   buildAssessmentPayload,
@@ -30,6 +32,8 @@ interface SyncResult {
 }
 
 interface HealthEngineState {
+  userProfile: UserProfile | null;
+  healthBaseline: HealthBaseline | null;
   activeProgramId: ProgramId;
   totalPoints: number;
   taskCompletions: TaskCompletionRecord[];
@@ -39,6 +43,9 @@ interface HealthEngineState {
   syncInFlight: boolean;
   lastSyncedAt?: string;
   isHydrated: boolean;
+  updateUserProfile: (profile: Partial<UserProfile>) => void;
+  updateBaseline: (baseline: Partial<HealthBaseline>) => void;
+  evaluateAlerts: () => { hasRedFlags: boolean; messages: string[] };
   setActiveProgram: (programId: ProgramId) => void;
   setNetworkQuality: (networkQuality: NetworkQuality) => void;
   setHydrated: (isHydrated: boolean) => void;
@@ -80,6 +87,8 @@ const updateQueueJob = (
 export const useHealthEngineStore = create<HealthEngineState>()(
   persist(
     (set, get) => ({
+      userProfile: null,
+      healthBaseline: null,
       activeProgramId: DEFAULT_PROGRAM.id,
       totalPoints: 0,
       taskCompletions: [],
@@ -90,6 +99,32 @@ export const useHealthEngineStore = create<HealthEngineState>()(
       lastSyncedAt: undefined,
       isHydrated: false,
       setHydrated: isHydrated => set({ isHydrated }),
+      updateUserProfile: profile => 
+        set(state => ({
+          userProfile: state.userProfile 
+            ? { ...state.userProfile, ...profile }
+            : { ...profile, id: createLocalId('user'), createdAt: new Date().toISOString() } as UserProfile
+        })),
+      updateBaseline: baseline =>
+        set(state => ({
+          healthBaseline: state.healthBaseline
+            ? { ...state.healthBaseline, ...baseline, lastUpdatedAt: new Date().toISOString() }
+            : { ...baseline, lastUpdatedAt: new Date().toISOString() } as HealthBaseline
+        })),
+      evaluateAlerts: () => {
+        const baseline = get().healthBaseline;
+        const msgs: string[] = [];
+        let hasRedFlags = false;
+        if (baseline?.bloodPressureSys && baseline.bloodPressureSys >= 180) {
+          msgs.push('血压告警: 收缩压危急值');
+          hasRedFlags = true;
+        }
+        if (baseline?.painLevel && baseline.painLevel >= 8) {
+          msgs.push('急性严重背痛告警');
+          hasRedFlags = true;
+        }
+        return { hasRedFlags, messages: msgs };
+      },
       setActiveProgram: activeProgramId =>
         set({ activeProgramId: getProgramById(activeProgramId).id }),
       setNetworkQuality: networkQuality => {
@@ -340,6 +375,8 @@ export const useHealthEngineStore = create<HealthEngineState>()(
       name: 'active-health-engine-store',
       storage: createJSONStorage(() => healthEngineStorage),
       partialize: state => ({
+        userProfile: state.userProfile,
+        healthBaseline: state.healthBaseline,
         activeProgramId: state.activeProgramId,
         totalPoints: state.totalPoints,
         taskCompletions: state.taskCompletions,

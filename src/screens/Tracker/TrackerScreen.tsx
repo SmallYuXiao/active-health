@@ -258,7 +258,11 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   header: {
-    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   backButton: {
     alignSelf: 'flex-start',

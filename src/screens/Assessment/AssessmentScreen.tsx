@@ -39,13 +39,15 @@ type AssessmentFlowStep =
       questions: ReturnType<typeof buildAssessmentSteps>[number]['questions'];
     };
 
-export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ navigation }) => {
+export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ route, navigation }) => {
   const { activeProgramId, latestAssessment, submitAssessment } = useHealthEngineStore(
     useShallow(state => {
+      // 如果 route.params?.programId 传入，则覆盖 activeProgramId，实现动态加载不同的评估表
+      const targetId = route.params?.programId ?? state.activeProgramId;
       return {
-        activeProgramId: state.activeProgramId,
+        activeProgramId: targetId,
         latestAssessment: state.assessmentSubmissions
-          .filter(submission => submission.programId === state.activeProgramId)
+          .filter(submission => submission.programId === targetId)
           .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt))[0],
         submitAssessment: state.submitAssessment,
       };
@@ -359,7 +361,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
   },
   closeButton: {
     width: 36,

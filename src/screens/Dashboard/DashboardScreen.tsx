@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Card } from '../../components/Card';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 import { getProgramSnapshot, useHealthEngineStore } from '../../store/useHealthEngineStore';
+import { generateInterventionPlan } from '../../utils/engine';
 
 type DashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -22,6 +23,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
     taskCompletions,
     assessmentSubmissions,
     queueJobs,
+    userProfile,
+    healthBaseline,
+    evaluateAlerts
   } = useHealthEngineStore(
     useShallow(state => ({
       activeProgramId: state.activeProgramId,
@@ -29,6 +33,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
       taskCompletions: state.taskCompletions,
       assessmentSubmissions: state.assessmentSubmissions,
       queueJobs: state.queueJobs,
+      userProfile: state.userProfile,
+      healthBaseline: state.healthBaseline,
+      evaluateAlerts: state.evaluateAlerts,
     })),
   );
 
@@ -49,10 +56,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
       )
     : undefined;
 
-  let todayStatusText = '建议您先完成一次快速红旗自评，以获取更精准的今日恢复计划。';
-  let todayStatusTitle = '等待初步评估';
+  const prescription = userProfile ? generateInterventionPlan(userProfile, healthBaseline) : null;
+  const { hasRedFlags } = evaluateAlerts();
+
+  let todayStatusText = '建议您先完成一次快速自评，或者输入日常体征基线。';
+  let todayStatusTitle = '等待数据基线';
+  let isAlertState = false;
   
-  if (latestRiskBand) {
+  if (hasRedFlags) {
+    todayStatusTitle = '当前状态：触发安全预警';
+    todayStatusText = '系统监测到您在 DataEntry 或建档时的体征（高血压/严重背痛）触发了警告阈值，必须立即就医。干预体系将全部退阶为绝对保护模式。';
+    isAlertState = true;
+  } else if (latestRiskBand) {
     todayStatusTitle = '当前状态：' + latestRiskBand.label;
     if (latestRiskBand.tone === 'positive') {
       todayStatusText = '今天适合保持轻度活动，切忌完全卧床。正常的步态非常有利于下背部筋膜放松。';
@@ -60,6 +75,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
       todayStatusText = '今天症状偏重，建议以温和的呼吸与热敷为主，活动量以不加重疼痛为底线。';
     } else {
       todayStatusText = '目前风险较高，强烈建议先由专业医生面诊再考虑家庭恢复。';
+      isAlertState = true;
     }
   }
 
@@ -83,12 +99,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
         <Card style={styles.statusCard}>
           <Text style={styles.statusTitle}>{todayStatusTitle}</Text>
           <Text style={styles.statusText}>{todayStatusText}</Text>
-          {latestRiskBand?.tone === 'critical' ? (
+          {isAlertState ? (
             <Pressable
               style={[styles.actionButton, styles.criticalButton]}
-              onPress={() => navigation.navigate('RedFlagAlert')}
+              onPress={() => navigation.navigate('Telemed')}
             >
-              <Text style={styles.actionButtonText}>查看高风险说明</Text>
+              <Text style={styles.actionButtonText}>发起在线复诊救护</Text>
             </Pressable>
           ) : (
              <View style={styles.buttonRow}>
@@ -108,49 +124,48 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
           )}
         </Card>
 
-        {/* Task List */}
-        <View style={styles.taskSection}>
-          <View style={styles.sectionHeaderRow}>
-             <Text style={styles.sectionTitle}>今日 3 项任务</Text>
-             <Text style={styles.progressText}>
-               {snapshot.todayProgress.completedCount} / {snapshot.todayProgress.totalCount} 已完成
-             </Text>
-          </View>
-          <Card style={styles.taskListCard}>
-            <View style={styles.taskPreviewList}>
-              {snapshot.program.tasks.map((task: any) => {
-                const completed = taskCompletions.some(
-                  completion =>
-                    completion.programId === snapshot.program.id &&
-                    completion.taskId === task.id &&
-                    completion.dayKey === snapshot.todayKey,
-                );
-
-                return (
-                  <Pressable 
-                     key={task.id} 
-                     style={styles.taskPreviewRow}
-                     onPress={() => navigation.navigate('Tracker')}
-                  >
-                    <View
-                      style={[
-                        styles.taskPreviewDot,
-                        completed && styles.taskPreviewDotCompleted,
-                      ]}
-                    />
-                    <View style={styles.taskPreviewCopy}>
-                      <Text style={[
-                        styles.taskPreviewTitle,
-                        completed && styles.taskPreviewTitleCompleted
-                      ]}>{task.title}</Text>
-                      <Text style={styles.taskPreviewDescription}>{task.description}</Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
+        {/* Dynamic Prescription List */}
+        {prescription && (
+          <View style={styles.taskSection}>
+            <View style={styles.sectionHeaderRow}>
+               <Text style={styles.sectionTitle}>今日千人千面干预提取</Text>
+               <Text style={styles.progressText}>
+                 核心算法生成
+               </Text>
             </View>
-          </Card>
-        </View>
+            <Card style={styles.taskListCard}>
+              <View style={styles.taskPreviewList}>
+                {prescription.movement?.slice(0, 2).map((task, index) => (
+                  <Pressable key={`m-${index}`} style={styles.taskPreviewRow} onPress={() => navigation.navigate('RecoveryPlan')}>
+                     <View style={styles.taskPreviewDot} />
+                     <View style={styles.taskPreviewCopy}>
+                       <Text style={styles.taskPreviewTitle}>{task}</Text>
+                       <Text style={styles.taskPreviewDescription}>运动指引</Text>
+                     </View>
+                  </Pressable>
+                ))}
+                {prescription.nutrition?.slice(0, 1).map((task, index) => (
+                  <Pressable key={`n-${index}`} style={styles.taskPreviewRow} onPress={() => navigation.navigate('RecoveryPlan')}>
+                     <View style={styles.taskPreviewDot} />
+                     <View style={styles.taskPreviewCopy}>
+                       <Text style={styles.taskPreviewTitle}>{task}</Text>
+                       <Text style={styles.taskPreviewDescription}>营养处方</Text>
+                     </View>
+                  </Pressable>
+                ))}
+                {(!prescription.movement?.length && !prescription.nutrition?.length && prescription.medications) && (
+                  <Pressable style={styles.taskPreviewRow} onPress={() => navigation.navigate('RecoveryPlan')}>
+                     <View style={[styles.taskPreviewDot, { borderColor: '#991B1B' }]} />
+                     <View style={styles.taskPreviewCopy}>
+                       <Text style={[styles.taskPreviewTitle, { color: '#991B1B' }]}>{prescription.medications[0]}</Text>
+                       <Text style={styles.taskPreviewDescription}>紧急用药指导</Text>
+                     </View>
+                  </Pressable>
+                )}
+              </View>
+            </Card>
+          </View>
+        )}
 
         {/* Recommendation / Recovery Plan link */}
         <Pressable 

@@ -3,10 +3,18 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
+import { useHealthEngineStore } from '../../store/useHealthEngineStore';
+import { generateInterventionPlan } from '../../utils/engine';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecoveryPlan'>;
 
 export const RecoveryPlanScreen: React.FC<Props> = ({ navigation }) => {
+  const { userProfile, healthBaseline } = useHealthEngineStore();
+  
+  if (!userProfile) return null;
+
+  const prescription = generateInterventionPlan(userProfile, healthBaseline);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
@@ -20,63 +28,73 @@ export const RecoveryPlanScreen: React.FC<Props> = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.introBlock}>
           <Text style={styles.introText}>
-            基于今天的身体状态，我们挑选了最保守但有效的干预方案。
+            基于您每天身体录入的状态，数字干预引擎为您生成了以下即时方案。
           </Text>
         </View>
 
-        {/* First section: Do first today */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>1. 今明两天 重点先做</Text>
-          </View>
-          
-          <ActionCard 
-            title="热敷与缓慢呼吸"
-            why="疼痛会引起肌肉不自觉的防御性痉挛。热敷15分钟结合深度腹式呼吸，能有效降低神经系统的紧张感，是所有活动的基石。"
-            items={['在最酸痛处铺上热毛巾或热水袋 15-20 分钟', '吸气 4 秒，呼气 6 秒，做 5 个循环']}
-          />
-          <ActionCard 
-            title="把久坐拆碎"
-            why="长时间维持同一个静态姿势会让损伤处的血液循环变差。频繁改变姿势比完美的坐姿更重要。"
-            items={['不用刻意挺直腰板', '每坐或躺 40 分钟，必须起身走动 2 分钟再回来']}
-          />
-        </View>
-
-        {/* Second section: Continue activity */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>2. 推荐的温和活动</Text>
-          </View>
-          
-          <ActionCard 
-            title="间歇性慢走"
-            why="轻度活动比完全卧床更有助于下背部功能恢复。步行的轻微震荡能给予椎间盘适当的营养交换。"
-            items={['在平地上慢走 8-10 分钟', '如果在行走中疼痛加剧，缩短单次时间，增加频次']}
-          />
-        </View>
-
-        {/* Third section: Emergency Mode */}
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, styles.emergencyHeader]}>
-            <Text style={styles.sectionTitle}>🚑 急救模式：如果今天特别疼</Text>
-          </View>
-          
-          <View style={[styles.card, styles.emergencyCard]}>
-            <Text style={styles.emergencyText}>当您的疼痛呈现不可控的爆发时，请采用紧急退阶策略：</Text>
-            <View style={styles.bulletList}>
-              <Text style={styles.bulletItem}>• 停止所有拉伸和步行任务。</Text>
-              <Text style={styles.bulletItem}>• 寻找最舒服的姿势（如平躺并在膝盖下垫枕头）休息。</Text>
-              <Text style={styles.bulletItem}>• 第一时间的缓解优先级是：热敷或冷敷（以你觉得最舒服为准）。</Text>
-              <Text style={styles.bulletItem}>• 如果伴随腿部麻木等严重症状，点击下方按钮：</Text>
+        {prescription.medications && prescription.medications.length > 0 && (
+          <View style={styles.section}>
+            <View style={[styles.sectionHeader, styles.emergencyHeader]}>
+              <Text style={styles.sectionTitle}>🚨 急诊与药物指导</Text>
             </View>
+            <ActionCard 
+              title="请优先执行"
+              why="系统监测到您的体征反馈已触发保护阈值，必须优先采纳医疗动作。"
+              items={prescription.medications}
+            />
+          </View>
+        )}
+
+        {prescription.movement && prescription.movement.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🏃‍♂️ 运动处方</Text>
+            </View>
+            <ActionCard 
+              title="当前最适宜的躯体动作"
+              why="由引擎结合您的评估基线、主控疾病种类所下发的专科指导。"
+              items={prescription.movement}
+            />
+          </View>
+        )}
+
+        {prescription.behavioral && prescription.behavioral.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>💡 行为矫正</Text>
+            </View>
+            <ActionCard 
+              title="日常习惯调整"
+              why="切断长期致病因子的关键，在于生活微小的姿势改变。"
+              items={prescription.behavioral}
+            />
+          </View>
+        )}
+
+        {prescription.nutrition && prescription.nutrition.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🥗 营养建议</Text>
+            </View>
+            <ActionCard 
+              title="膳食管理"
+              why="良好的饮食是降低全身炎症反应与代谢风险的重要基石。"
+              items={prescription.nutrition}
+            />
+          </View>
+        )}
+
+        {prescription.medications && prescription.medications.length > 0 && (
+          <View style={[styles.card, styles.emergencyCard, { marginTop: 12 }]}>
+            <Text style={styles.emergencyText}>当前处于系统告警退阶状态，如果伴有其他并发严重症状，切勿拖延，请立即联系医生介入：</Text>
             <Pressable 
                style={styles.redFlagButton}
-               onPress={() => navigation.navigate('RedFlagAlert')}
+               onPress={() => navigation.navigate('Telemed')}
             >
-               <Text style={styles.redFlagButtonText}>查看高风险说明</Text>
+               <Text style={styles.redFlagButtonText}>马上发起图文问诊</Text>
             </Pressable>
           </View>
-        </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -109,9 +127,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     padding: 8,
