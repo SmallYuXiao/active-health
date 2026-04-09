@@ -1,0 +1,2 @@
+app_identifier(ENV["IOS_BUNDLE_ID"] || "com.yuxiaoyi.activehealthlbp")
+team_id(ENV["IOS_APPLE_TEAM_ID"] || "J6PH9SW96A")

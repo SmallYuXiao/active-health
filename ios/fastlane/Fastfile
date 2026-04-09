@@ -1,0 +1,61 @@
+default_platform(:ios)
+
+def require_env!(key)
+  value = ENV[key]
+  UI.user_error!("Missing ENV[#{key}]. Check ios/fastlane/.env.testflight.") if value.to_s.empty?
+  value
+end
+
+platform :ios do
+  desc "Build and upload ActiveHealth to TestFlight"
+  lane :beta do |options|
+    workspace = options[:workspace] || ENV.fetch("IOS_WORKSPACE", "ActiveHealth.xcworkspace")
+    scheme = options[:scheme] || ENV.fetch("IOS_SCHEME", "ActiveHealth")
+    xcodeproj = options[:xcodeproj] || ENV.fetch("IOS_XCODEPROJ", "ActiveHealth.xcodeproj")
+    output_dir = ENV.fetch("IOS_BUILD_OUTPUT_DIR", "build")
+    build_number = options[:build_number] || ENV["IOS_BUILD_NUMBER"]
+
+    api_key = app_store_connect_api_key(
+      key_id: require_env!("APP_STORE_CONNECT_API_KEY_ID"),
+      issuer_id: require_env!("APP_STORE_CONNECT_API_ISSUER_ID"),
+      key_filepath: require_env!("APP_STORE_CONNECT_API_KEY_PATH"),
+      in_house: false
+    )
+
+    unless ENV["IOS_SKIP_PODS"] == "1"
+      cocoapods(
+        podfile: "Podfile",
+        clean_install: false
+      )
+    end
+
+    if build_number.to_s.empty?
+      increment_build_number(xcodeproj: xcodeproj)
+    else
+      increment_build_number(
+        xcodeproj: xcodeproj,
+        build_number: build_number
+      )
+    end
+
+    build_app(
+      workspace: workspace,
+      scheme: scheme,
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      output_directory: output_dir,
+      output_name: "#{scheme}.ipa",
+      include_symbols: true,
+      include_bitcode: false,
+      xcargs: "-allowProvisioningUpdates"
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      distribute_external: false,
+      changelog: options[:changelog] || ENV["TESTFLIGHT_CHANGELOG"]
+    )
+  end
+end

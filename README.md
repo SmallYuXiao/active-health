@@ -1,5 +1,29 @@
 This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
+# One-command TestFlight Upload (iOS)
+
+1. Install Ruby gems once from project root:
+
+```sh
+bundle install
+```
+
+2. Create your fastlane env file:
+
+```sh
+cp ios/fastlane/.env.testflight.example ios/fastlane/.env.testflight
+```
+
+3. Fill `ios/fastlane/.env.testflight` with your App Store Connect API key values.
+
+4. Upload in one command:
+
+```sh
+npm run ios:testflight
+```
+
+This command builds a Release IPA and uploads it to TestFlight.
+
 # Getting Started
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
