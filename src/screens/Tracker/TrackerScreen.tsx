@@ -26,6 +26,8 @@ const NETWORK_LABELS: Record<NetworkQuality, string> = {
   weak: '弱网',
   online: '在线',
 };
+const SHOW_SYNC_ENV_CARD = false;
+const SHOW_QUEUE_REPLAY_CARD = false;
 
 const QUEUE_STATUS_LABELS = {
   queued: '已排队',
@@ -125,52 +127,54 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
           </View>
         </Card>
 
-        <Card>
-          <Text style={styles.cardTitle}>同步环境</Text>
-          <Text style={styles.cardCopy}>
-            用它模拟离线和弱网补偿逻辑，无需改后端代码。
-          </Text>
-          <View style={styles.networkOptions}>
-            {NETWORK_OPTIONS.map(option => (
-              <ChipButton
-                key={option}
-                compact
-                label={NETWORK_LABELS[option]}
-                selected={networkQuality === option}
-                onPress={() => setNetworkQuality(option)}
-                selectedBackgroundColor={
-                  option === 'online'
-                    ? '#166534'
-                    : option === 'weak'
-                      ? '#B45309'
-                      : '#B91C1C'
-                }
-                selectedBorderColor={
-                  option === 'online'
-                    ? '#166534'
-                    : option === 'weak'
-                      ? '#B45309'
-                      : '#B91C1C'
-                }
-                style={styles.networkChip}
-              />
-            ))}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleSyncNow}
-            disabled={networkQuality === 'offline' || syncInFlight}
-            style={({ pressed }) => [
-              styles.syncButton,
-              (networkQuality === 'offline' || syncInFlight) && styles.disabledButton,
-              pressed && styles.pressedButton,
-            ]}
-          >
-            <Text style={styles.syncButtonText}>
-              {syncInFlight ? '同步中...' : '立即处理队列'}
+        {SHOW_SYNC_ENV_CARD ? (
+          <Card>
+            <Text style={styles.cardTitle}>同步环境</Text>
+            <Text style={styles.cardCopy}>
+              用它模拟离线和弱网补偿逻辑，无需改后端代码。
             </Text>
-          </Pressable>
-        </Card>
+            <View style={styles.networkOptions}>
+              {NETWORK_OPTIONS.map(option => (
+                <ChipButton
+                  key={option}
+                  compact
+                  label={NETWORK_LABELS[option]}
+                  selected={networkQuality === option}
+                  onPress={() => setNetworkQuality(option)}
+                  selectedBackgroundColor={
+                    option === 'online'
+                      ? '#166534'
+                      : option === 'weak'
+                        ? '#B45309'
+                        : '#B91C1C'
+                  }
+                  selectedBorderColor={
+                    option === 'online'
+                      ? '#166534'
+                      : option === 'weak'
+                        ? '#B45309'
+                        : '#B91C1C'
+                  }
+                  style={styles.networkChip}
+                />
+              ))}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleSyncNow}
+              disabled={networkQuality === 'offline' || syncInFlight}
+              style={({ pressed }) => [
+                styles.syncButton,
+                (networkQuality === 'offline' || syncInFlight) && styles.disabledButton,
+                pressed && styles.pressedButton,
+              ]}
+            >
+              <Text style={styles.syncButtonText}>
+                {syncInFlight ? '同步中...' : '立即处理队列'}
+              </Text>
+            </Pressable>
+          </Card>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>今日任务</Text>
@@ -197,25 +201,27 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
           })}
         </View>
 
-        <Card>
-          <Text style={styles.cardTitle}>队列回放</Text>
-          <Text style={styles.cardCopy}>
-            失败任务会保留在本地，待网络好转后可以重试。
-          </Text>
-          <View style={styles.queueList}>
-            {recentJobs.length === 0 ? (
-              <Text style={styles.emptyText}>当前方案没有待处理任务。</Text>
-            ) : (
-              recentJobs.map(job => (
-                <QueueTimelineItem
-                  key={job.id}
-                  job={job}
-                  accentColor={snapshot.program.accentColor}
-                />
-              ))
-            )}
-          </View>
-        </Card>
+        {SHOW_QUEUE_REPLAY_CARD ? (
+          <Card>
+            <Text style={styles.cardTitle}>队列回放</Text>
+            <Text style={styles.cardCopy}>
+              失败任务会保留在本地，待网络好转后可以重试。
+            </Text>
+            <View style={styles.queueList}>
+              {recentJobs.length === 0 ? (
+                <Text style={styles.emptyText}>当前方案没有待处理任务。</Text>
+              ) : (
+                recentJobs.map(job => (
+                  <QueueTimelineItem
+                    key={job.id}
+                    job={job}
+                    accentColor={snapshot.program.accentColor}
+                  />
+                ))
+              )}
+            </View>
+          </Card>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

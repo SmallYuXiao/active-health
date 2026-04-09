@@ -1,4 +1,4 @@
-package com.activehealth
+package com.yuxiaoyi.activehealthlbp
 
 import android.app.Application
 import com.facebook.react.PackageList

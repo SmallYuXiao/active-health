@@ -1,4 +1,4 @@
-package com.activehealth
+package com.yuxiaoyi.activehealthlbp
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
