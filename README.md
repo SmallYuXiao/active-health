@@ -14,7 +14,9 @@ bundle install
 cp ios/fastlane/.env.testflight.example ios/fastlane/.env.testflight
 ```
 
-3. Fill `ios/fastlane/.env.testflight` with your App Store Connect API key values.
+3. Fill `ios/fastlane/.env.testflight` with one auth mode:
+   - API Key mode (recommended), or
+   - Apple ID mode (`APP_STORE_CONNECT_USERNAME` + `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD` + `APP_STORE_CONNECT_APPLE_ID`)
 
 4. Upload in one command:
 
@@ -23,6 +25,12 @@ npm run ios:testflight
 ```
 
 This command builds a Release IPA and uploads it to TestFlight.
+
+If IPA is already built and you only want to retry upload:
+
+```sh
+IOS_UPLOAD_ONLY=1 npm run ios:testflight
+```
 
 # Getting Started
 
