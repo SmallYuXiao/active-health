@@ -20,10 +20,13 @@ import {
   resolveRiskBand,
 } from '../utils/assessment';
 import {
+  buildDailyTaskPlan,
+  getDailyTaskProgressForDay,
+} from '../utils/dailyPlan';
+import {
   computeProgramStreakDays,
   getDayKey,
   getLatestAssessmentSubmission,
-  getProgramTaskProgressForDay,
 } from '../utils/engine';
 
 interface SyncResult {
@@ -84,6 +87,23 @@ const updateQueueJob = (
   patch: Partial<QueueJob>,
 ) => queueJobs.map(job => (job.id === jobId ? { ...job, ...patch } : job));
 
+const evaluateBaselineRedFlags = (baseline: HealthBaseline | null) => {
+  const messages: string[] = [];
+  let hasRedFlags = false;
+
+  if (baseline?.bloodPressureSys && baseline.bloodPressureSys >= 180) {
+    messages.push('血压告警: 收缩压危急值');
+    hasRedFlags = true;
+  }
+
+  if (baseline?.painLevel && baseline.painLevel >= 8) {
+    messages.push('急性严重背痛告警');
+    hasRedFlags = true;
+  }
+
+  return { hasRedFlags, messages };
+};
+
 export const useHealthEngineStore = create<HealthEngineState>()(
   persist(
     (set, get) => ({
@@ -111,20 +131,7 @@ export const useHealthEngineStore = create<HealthEngineState>()(
             ? { ...state.healthBaseline, ...baseline, lastUpdatedAt: new Date().toISOString() }
             : { ...baseline, lastUpdatedAt: new Date().toISOString() } as HealthBaseline
         })),
-      evaluateAlerts: () => {
-        const baseline = get().healthBaseline;
-        const msgs: string[] = [];
-        let hasRedFlags = false;
-        if (baseline?.bloodPressureSys && baseline.bloodPressureSys >= 180) {
-          msgs.push('血压告警: 收缩压危急值');
-          hasRedFlags = true;
-        }
-        if (baseline?.painLevel && baseline.painLevel >= 8) {
-          msgs.push('急性严重背痛告警');
-          hasRedFlags = true;
-        }
-        return { hasRedFlags, messages: msgs };
-      },
+      evaluateAlerts: () => evaluateBaselineRedFlags(get().healthBaseline),
       setActiveProgram: activeProgramId =>
         set({ activeProgramId: getProgramById(activeProgramId).id }),
       setNetworkQuality: networkQuality => {
@@ -139,7 +146,22 @@ export const useHealthEngineStore = create<HealthEngineState>()(
       completeTask: (taskId, maybeProgramId, dayKey = getDayKey()) => {
         const programId = maybeProgramId ?? get().activeProgramId;
         const program = getProgramById(programId);
-        const task = program.tasks.find(item => item.id === taskId);
+        const currentState = get();
+        const latestAssessment = getLatestAssessmentSubmission(
+          currentState.assessmentSubmissions,
+          programId,
+        );
+        const baselineRisk = evaluateBaselineRedFlags(currentState.healthBaseline);
+        const dailyPlan = buildDailyTaskPlan({
+          program,
+          userProfile: currentState.userProfile,
+          healthBaseline: currentState.healthBaseline,
+          latestAssessment,
+          hasRedFlags: baselineRisk.hasRedFlags,
+        });
+        const task =
+          dailyPlan.tasks.find(item => item.id === taskId) ??
+          program.tasks.find(item => item.id === taskId);
 
         if (!task) {
           return;
@@ -398,27 +420,44 @@ export const useHealthEngineStore = create<HealthEngineState>()(
 export const getProgramSnapshot = (
   state: Pick<
     HealthEngineState,
-    'activeProgramId' | 'assessmentSubmissions' | 'queueJobs' | 'taskCompletions' | 'totalPoints'
-  >,
+    | 'activeProgramId'
+    | 'assessmentSubmissions'
+    | 'queueJobs'
+    | 'taskCompletions'
+    | 'totalPoints'
+  > &
+    Partial<Pick<HealthEngineState, 'userProfile' | 'healthBaseline'>>,
   maybeProgramId?: ProgramId,
 ) => {
   const programId = maybeProgramId ?? state.activeProgramId;
   const program = getProgramById(programId);
   const todayKey = getDayKey();
-  const todayProgress = getProgramTaskProgressForDay(
-    program,
-    state.taskCompletions,
-    todayKey,
-  );
   const latestAssessment = getLatestAssessmentSubmission(
     state.assessmentSubmissions,
     programId,
+  );
+  const baselineRisk = evaluateBaselineRedFlags(state.healthBaseline ?? null);
+  const dailyPlan = buildDailyTaskPlan({
+    program,
+    userProfile: state.userProfile ?? null,
+    healthBaseline: state.healthBaseline ?? null,
+    latestAssessment,
+    hasRedFlags: baselineRisk.hasRedFlags,
+  });
+  const todayProgress = getDailyTaskProgressForDay(
+    dailyPlan.tasks,
+    state.taskCompletions,
+    programId,
+    todayKey,
   );
 
   return {
     program,
     todayKey,
     todayProgress,
+    dailyTasks: dailyPlan.tasks,
+    coreTasks: dailyPlan.coreTasks,
+    personalizedTasks: dailyPlan.personalizedTasks,
     streakDays: computeProgramStreakDays(program, state.taskCompletions, todayKey),
     pendingJobs: state.queueJobs.filter(job => job.programId === programId).length,
     latestAssessment,

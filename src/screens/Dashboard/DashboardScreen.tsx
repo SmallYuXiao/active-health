@@ -12,7 +12,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { Card } from '../../components/Card';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 import { getProgramSnapshot, useHealthEngineStore } from '../../store/useHealthEngineStore';
-import { generateInterventionPlan } from '../../utils/engine';
 
 type DashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -46,6 +45,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
       taskCompletions,
       assessmentSubmissions,
       queueJobs,
+      userProfile,
+      healthBaseline,
     },
     activeProgramId,
   );
@@ -56,10 +57,25 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
       )
     : undefined;
 
-  const prescription = userProfile ? generateInterventionPlan(userProfile, healthBaseline) : null;
   const { hasRedFlags } = evaluateAlerts();
+  const hasCompletedAssessment = Boolean(snapshot.latestAssessment);
+  const unifiedPreviewTasks = snapshot.dailyTasks;
+  const todayCompletedTaskIds = new Set(
+    taskCompletions
+      .filter(
+        completion =>
+          completion.programId === activeProgramId &&
+          completion.dayKey === snapshot.todayKey,
+      )
+      .map(completion => completion.taskId),
+  );
+  const taskSourceLabels = {
+    core: '基础',
+    personalized: '千人千面',
+    safety: '安全',
+  } as const;
 
-  let todayStatusText = '建议您先完成一次快速自评，或者输入日常体征基线。';
+  let todayStatusText = '建议先完成一次快速自评，再开始今日任务。';
   let todayStatusTitle = '等待数据基线';
   let isAlertState = false;
   
@@ -87,7 +103,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
           <View style={styles.heroCopy}>
             <Text style={styles.heroEyebrow}>MSK 恢复助手</Text>
             <Text style={styles.heroTitle}>今天的背椎恢复计划</Text>
-            <Text style={styles.heroSubtitle}>先做 1 次短检查，再完成 3 个小任务</Text>
+            <Text style={styles.heroSubtitle}>
+              先做 1 次短检查，再完成 {snapshot.todayProgress.totalCount} 个小任务
+            </Text>
           </View>
           <View style={styles.streakBadge}>
             <Text style={styles.streakValue}>{snapshot.streakDays}</Text>
@@ -105,6 +123,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
               onPress={() => navigation.navigate('Telemed')}
             >
               <Text style={styles.actionButtonText}>发起在线复诊救护</Text>
+            </Pressable>
+          ) : !hasCompletedAssessment ? (
+            <Pressable
+              style={[styles.actionButton, styles.primaryButton]}
+              onPress={() => navigation.navigate('Assessment')}
+            >
+              <Text style={styles.actionButtonText}>开始快速自评</Text>
             </Pressable>
           ) : (
              <View style={styles.buttonRow}>
@@ -125,43 +150,73 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
         </Card>
 
         {/* Dynamic Prescription List */}
-        {prescription && (
+        {unifiedPreviewTasks.length > 0 && (
           <View style={styles.taskSection}>
             <View style={styles.sectionHeaderRow}>
-               <Text style={styles.sectionTitle}>今日千人千面干预提取</Text>
+               <Text style={styles.sectionTitle}>今日统一任务（含千人千面）</Text>
                <Text style={styles.progressText}>
-                 核心算法生成
+                 {snapshot.todayProgress.completedCount}/{snapshot.todayProgress.totalCount} 已完成
                </Text>
             </View>
             <Card style={styles.taskListCard}>
               <View style={styles.taskPreviewList}>
-                {prescription.movement?.slice(0, 2).map((task, index) => (
-                  <Pressable key={`m-${index}`} style={styles.taskPreviewRow} onPress={() => navigation.navigate('RecoveryPlan')}>
-                     <View style={styles.taskPreviewDot} />
+                {unifiedPreviewTasks.map(task => {
+                  const completed = todayCompletedTaskIds.has(task.id);
+                  const isSafetyTask = task.source === 'safety';
+                  const isCoreTask = task.source === 'core';
+                  const isPersonalizedTask = task.source === 'personalized';
+
+                  return (
+                    <Pressable
+                      key={task.id}
+                      style={styles.taskPreviewRow}
+                      onPress={() => navigation.navigate('Tracker')}
+                    >
+                     <View
+                       style={[
+                         styles.taskPreviewDot,
+                         completed && styles.taskPreviewDotCompleted,
+                         isSafetyTask && !completed && styles.taskPreviewDotSafety,
+                       ]}
+                     />
                      <View style={styles.taskPreviewCopy}>
-                       <Text style={styles.taskPreviewTitle}>{task}</Text>
-                       <Text style={styles.taskPreviewDescription}>运动指引</Text>
+                       <View style={styles.taskPreviewHeader}>
+                         <Text
+                           style={[
+                             styles.taskPreviewTitle,
+                             completed && styles.taskPreviewTitleCompleted,
+                             isSafetyTask && !completed && styles.taskPreviewTitleSafety,
+                           ]}
+                         >
+                           {task.title}
+                         </Text>
+                         <View
+                           style={[
+                             styles.taskSourceBadge,
+                             isCoreTask && styles.taskSourceBadgeCore,
+                             isPersonalizedTask && styles.taskSourceBadgePersonalized,
+                             isSafetyTask && styles.taskSourceBadgeSafety,
+                           ]}
+                         >
+                           <Text
+                             style={[
+                               styles.taskSourceText,
+                               isCoreTask && styles.taskSourceTextCore,
+                               isPersonalizedTask && styles.taskSourceTextPersonalized,
+                               isSafetyTask && styles.taskSourceTextSafety,
+                             ]}
+                           >
+                             {taskSourceLabels[task.source]}
+                           </Text>
+                         </View>
+                       </View>
+                       <Text style={styles.taskPreviewDescription}>
+                         {completed ? '已在今日任务中完成' : task.description}
+                       </Text>
                      </View>
-                  </Pressable>
-                ))}
-                {prescription.nutrition?.slice(0, 1).map((task, index) => (
-                  <Pressable key={`n-${index}`} style={styles.taskPreviewRow} onPress={() => navigation.navigate('RecoveryPlan')}>
-                     <View style={styles.taskPreviewDot} />
-                     <View style={styles.taskPreviewCopy}>
-                       <Text style={styles.taskPreviewTitle}>{task}</Text>
-                       <Text style={styles.taskPreviewDescription}>营养处方</Text>
-                     </View>
-                  </Pressable>
-                ))}
-                {(!prescription.movement?.length && !prescription.nutrition?.length && prescription.medications) && (
-                  <Pressable style={styles.taskPreviewRow} onPress={() => navigation.navigate('RecoveryPlan')}>
-                     <View style={[styles.taskPreviewDot, { borderColor: '#991B1B' }]} />
-                     <View style={styles.taskPreviewCopy}>
-                       <Text style={[styles.taskPreviewTitle, { color: '#991B1B' }]}>{prescription.medications[0]}</Text>
-                       <Text style={styles.taskPreviewDescription}>紧急用药指导</Text>
-                     </View>
-                  </Pressable>
-                )}
+                    </Pressable>
+                  );
+                })}
               </View>
             </Card>
           </View>
@@ -334,11 +389,21 @@ const styles = StyleSheet.create({
     borderColor: '#65A30D',
     backgroundColor: '#65A30D',
   },
+  taskPreviewDotSafety: {
+    borderColor: '#991B1B',
+  },
   taskPreviewCopy: {
     flex: 1,
     gap: 4,
   },
+  taskPreviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   taskPreviewTitle: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     color: '#1C1917',
@@ -346,6 +411,40 @@ const styles = StyleSheet.create({
   taskPreviewTitleCompleted: {
     color: '#A8A29E',
     textDecorationLine: 'line-through',
+  },
+  taskPreviewTitleSafety: {
+    color: '#991B1B',
+  },
+  taskSourceBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  taskSourceBadgeCore: {
+    backgroundColor: '#F5F5F4',
+    borderColor: '#D6D3D1',
+  },
+  taskSourceBadgePersonalized: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  taskSourceBadgeSafety: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+  },
+  taskSourceText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  taskSourceTextCore: {
+    color: '#57534E',
+  },
+  taskSourceTextPersonalized: {
+    color: '#166534',
+  },
+  taskSourceTextSafety: {
+    color: '#991B1B',
   },
   taskPreviewDescription: {
     fontSize: 14,

@@ -66,12 +66,10 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ navigati
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>慢病与痛症 (多选)</Text>
+          <Text style={styles.label}>慢病和痛症 (多选)</Text>
           <View style={styles.row}>
             {[
-              { id: 'lbp_msk', label: '下背痛/脊柱' },
-              { id: 'hypertension', label: '高血压 (Mock)' },
-              { id: 'weight', label: '肥胖与代谢' }
+              { id: 'lbp_msk', label: '下背痛/脊柱' }
             ].map(cond => {
               const active = conditions.includes(cond.id as ProgramId);
               return (

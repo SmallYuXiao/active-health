@@ -43,6 +43,8 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
     taskCompletions,
     assessmentSubmissions,
     queueJobs,
+    userProfile,
+    healthBaseline,
     networkQuality,
     syncInFlight,
     setNetworkQuality,
@@ -55,6 +57,8 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
       taskCompletions: state.taskCompletions,
       assessmentSubmissions: state.assessmentSubmissions,
       queueJobs: state.queueJobs,
+      userProfile: state.userProfile,
+      healthBaseline: state.healthBaseline,
       networkQuality: state.networkQuality,
       syncInFlight: state.syncInFlight,
       setNetworkQuality: state.setNetworkQuality,
@@ -70,6 +74,8 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
       taskCompletions,
       assessmentSubmissions,
       queueJobs,
+      userProfile,
+      healthBaseline,
     },
     activeProgramId,
   );
@@ -97,10 +103,12 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backText}>返回</Text>
-          </Pressable>
-          <Text style={styles.title}>进度追踪</Text>
+          <View style={styles.headerTopRow}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Text style={styles.backText}>←</Text>
+            </Pressable>
+            <Text style={styles.title}>进度追踪</Text>
+          </View>
           <Text style={styles.subtitle}>
             {snapshot.program.title}
             。本地状态机会立即接收写入，并在稍后完成同步。
@@ -176,30 +184,48 @@ export const TrackerScreen: React.FC<TrackerScreenProps> = ({ navigation }) => {
           </Card>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>今日任务</Text>
-          {snapshot.program.tasks.map(task => {
-            const completion = getTaskCompletionForDay(
-              programCompletions,
-              task.id,
-              snapshot.todayKey,
-            );
+        {!snapshot.latestAssessment ? (
+          <Card>
+            <Text style={styles.cardTitle}>先完成今日自评</Text>
+            <Text style={styles.cardCopy}>
+              今日任务依赖本次自评结果生成。请先完成快速自评，再回到这里执行统一任务单。
+            </Text>
+            <Pressable
+              style={styles.assessmentGateButton}
+              onPress={() => navigation.navigate('Assessment')}
+            >
+              <Text style={styles.assessmentGateButtonText}>去做快速自评</Text>
+            </Pressable>
+          </Card>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>今日统一任务</Text>
+            <Text style={styles.sectionCaption}>
+              基础任务 {snapshot.coreTasks.length} 项 + 千人千面 {snapshot.personalizedTasks.length} 项
+            </Text>
+            {snapshot.dailyTasks.map(task => {
+              const completion = getTaskCompletionForDay(
+                programCompletions,
+                task.id,
+                snapshot.todayKey,
+              );
 
-            return (
-              <TaskItem
-                key={task.id}
-                title={task.title}
-                description={task.description}
-                cadenceLabel={task.cadenceLabel}
-                points={task.points}
-                completed={Boolean(completion)}
-                syncStatus={completion?.syncStatus}
-                accentColor={snapshot.program.accentColor}
-                onActionPress={() => handleCompleteTask(task.id)}
-              />
-            );
-          })}
-        </View>
+              return (
+                <TaskItem
+                  key={task.id}
+                  title={task.title}
+                  description={task.description}
+                  cadenceLabel={task.cadenceLabel}
+                  points={task.points}
+                  completed={Boolean(completion)}
+                  syncStatus={completion?.syncStatus}
+                  accentColor={snapshot.program.accentColor}
+                  onActionPress={() => handleCompleteTask(task.id)}
+                />
+              );
+            })}
+          </View>
+        )}
 
         {SHOW_QUEUE_REPLAY_CARD ? (
           <Card>
@@ -264,25 +290,24 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    gap: 8,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   backButton: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#E7E5E4',
+    padding: 4,
   },
   backText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1F2937',
+    fontSize: 24,
+    fontWeight: '500',
+    color: '#111827',
+    lineHeight: 24,
   },
   title: {
     fontSize: 28,
@@ -359,6 +384,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
+  assessmentGateButton: {
+    borderRadius: 14,
+    backgroundColor: '#C2410C',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  assessmentGateButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
   section: {
     gap: 10,
   },
@@ -366,6 +402,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: '#1C1917',
+    paddingHorizontal: 4,
+  },
+  sectionCaption: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#6B7280',
     paddingHorizontal: 4,
   },
   queueList: {
